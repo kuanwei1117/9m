@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>怪獸電力公司：幸福捧花尖叫能量大PK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- 引入 MQTT 雲端即時訊息轉發 (穿透所有 4G/5G 與飯店防火牆) + PeerJS 雙重備援 -->
+    <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --canister-yellow: #ffda55;
+            --canister-yellow-dark: #f5b025;
+            --sulley-blue: #6fd6ff;
+            --sulley-purple: #c084fc;
+            --mike-green: #86efac;
+            --wedding-pink: #ff6b9d;
+            --scream-red: #ff2a55;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #fff5f8;
+            /* 夢幻婚禮粉彩點點與毛怪斑點柔和背景 */
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(111, 214, 255, 0.25) 0%, transparent 35%),
+                radial-gradient(circle at 85% 25%, rgba(192, 132, 252, 0.22) 0%, transparent 35%),
+                radial-gradient(circle at 50% 85%, rgba(255, 182, 193, 0.35) 0%, transparent 45%),
+                radial-gradient(#ffd1dc 2px, transparent 2px),
+                radial-gradient(#bae6fd 2px, #fff5f8 2px);
+            background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+            background-position: 0 0, 0 0, 0 0, 0 0, 20px 20px;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+            color: #4a354f;
+        }
+
+        .cute-number {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+        }
+
+        /* 可愛粉紅奶油條紋 (取代原本生硬的黑黃施工條紋) */
+        .candy-stripes {
+            background: repeating-linear-gradient(
+                -45deg,
+                #ff8da1,
+                #ff8da1 12px,
+                #fff0f5 12px,
+                #fff0f5 24px
+            );
+        }
+
+        /* 卡通圓潤版尖叫能量罐瓶身 */
+        .canister-body {
+            background: linear-gradient(90deg, 
+                #f6b93b 0%, 
+                #ffeaa7 22%, 
+                #fff6d1 38%, 
+                #ffda55 68%, 
+                #f39c12 100%
+            );
+            box-shadow: 
+                inset 0 8px 15px rgba(255,255,255,0.8),
+                inset 0 -8px 15px rgba(243, 156, 18, 0.35),
+                0 16px 35px rgba(255, 107, 157, 0.25),
+                0 0 0 5px #ffffff;
+        }
+
+        /* 頂部與底部粉彩紫藍金屬蓋 (毛怪配色) */
+        .cute-cap {
+            background: linear-gradient(90deg,
+                #7dd3fc 0%,
+                #bae6fd 30%,
+                #e0f2fe 45%,
+                #7dd3fc 80%,
+                #38bdf8 100%
+            );
+            box-shadow: 
+                inset 0 4px 6px rgba(255,255,255,0.8),
+                inset 0 -4px 6px rgba(2, 132, 199, 0.25),
+                0 4px 10px rgba(0,0,0,0.08);
+        }
+
+        /* 頂部花朵氣閥轉盤 */
+        .valve-wheel {
+            background: linear-gradient(135deg, #ff9ff3, #f368e0);
+            box-shadow: 0 4px 0 #be2edd, 0 6px 12px rgba(243, 104, 224, 0.4);
+            transition: transform 0.25s ease;
+        }
+
+        /* 中央凹槽視窗 (圓潤深莓果色底，凸顯鮮紅愛心能量條) */
+        .gauge-recess {
+            background: #2d122b;
+            box-shadow: 
+                inset 0 0 18px #140513,
+                0 0 0 5px #ffffff,
+                0 0 0 9px #ff9eb5,
+                0 8px 20px rgba(255, 105, 135, 0.3);
+        }
+
+        /* 玻璃反光塗層 */
+        .glass-reflection {
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.12) 0%, 
+                rgba(255,255,255,0.45) 22%, 
+                rgba(255,255,255,0.08) 45%, 
+                transparent 100%
+            );
+            pointer-events: none;
+        }
+
+        /* 紅色尖叫能量液體 (怪獸電力公司經典紅 + 戀愛光澤) */
+        .energy-bar-fill {
+            background: linear-gradient(90deg,
+                #e11d48 0%,
+                #ff2a55 25%,
+                #ff8fa3 50%,
+                #ff2a55 75%,
+                #e11d48 100%
+            );
+            box-shadow: 
+                0 0 20px #ff2a55,
+                0 0 35px #ff6b8b,
+                inset 0 3px 6px #ffffff;
+            transition: height 0.05s linear;
+        }
+
+        /* 能量刻度遮罩 */
+        .led-segments {
+            background: repeating-linear-gradient(
+                to top,
+                transparent 0px,
+                transparent 12px,
+                rgba(45, 18, 43, 0.35) 12px,
+                rgba(45, 18, 43, 0.35) 15px
+            );
+        }
+
+        /* 珍珠鉚釘效果 */
+        .pearl-stud {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #ffffff, #fbcfe8, #f472b6);
+            box-shadow: 0 2px 3px rgba(0,0,0,0.12);
+        }
+
+        /* 破表歡樂彈跳震動動畫 */
+        @keyframes happy-shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1.02); }
+            25% { transform: translate(-3px, -3px) rotate(-2deg) scale(1.03); }
+            50% { transform: translate(3px, 2px) rotate(2deg) scale(1.02); }
+            75% { transform: translate(-3px, 2px) rotate(-1.5deg) scale(1.03); }
+        }
+
+        .overcharge-shake {
+            animation: happy-shake 0.18s infinite;
+        }
+
+        /* 頂部愛心警報燈閃爍 */
+        @keyframes alarm-blink {
+            0%, 100% { background-color: #fda4af; transform: scale(1); }
+            50% { background-color: #ff1e42; box-shadow: 0 0 25px #ff1e42, 0 0 45px #ff758f; transform: scale(1.08); }
+        }
+
+        .alarm-active {
+            animation: alarm-blink 0.3s infinite;
+        }
+
+        /* 愛心氣泡上升動畫 */
+        @keyframes bubble-rise {
+            0% { transform: translateY(100%) scale(0.7); opacity: 0.9; }
+            100% { transform: translateY(-260%) scale(1.25); opacity: 0; }
+        }
+        .energy-bubble {
+            animation: bubble-rise 1.4s infinite ease-in;
+        }
+
+        /* 卡片可愛立體外框 */
+        .cute-card {
+            background: rgba(255, 255, 255, 0.92);
+            border: 3px solid #ffc2d4;
+            box-shadow: 0 10px 25px -5px rgba(255, 143, 171, 0.25), 0 4px 0 #ffccd5;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-2 sm:p-4">
+
+    <!-- 頂部：怪獸電力公司 × 婚禮捧花爭奪戰標頭 -->
+    <header class="w-full max-w-4xl cute-card rounded-3xl p-3 sm:p-4 backdrop-blur-md">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <!-- 可愛版大眼仔 & 毛怪風格婚禮 Logo -->
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-pink-400 via-rose-400 to-amber-300 flex items-center justify-center shadow-md border-2 border-white relative shrink-0">
+                    <span class="text-2xl sm:text-3xl drop-shadow">💐</span>
+                    <span class="absolute -top-1.5 -right-1.5 text-sm bg-white rounded-full px-1 shadow">👾</span>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-[11px] sm:text-xs font-black tracking-wider bg-gradient-to-r from-sky-400 to-purple-400 text-white px-2.5 py-0.5 rounded-full shadow-sm">
+                            WEDDING SCREAM CUP 💕
+                        </span>
+                        <span id="mic-status-badge" class="text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-600 border border-rose-300 flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span> 尚未開啟麥克風
+                        </span>
+                    </div>
+                    <h1 class="text-lg sm:text-2xl font-black tracking-wide text-rose-500 mt-0.5">
+                        伴娘祝福大PK：尖叫掌聲搶捧花！
+                    </h1>
+                </div>
+            </div>
+
+            <!-- 遊戲模式切換 -->
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-center">
+                <div class="flex items-center bg-pink-50 p-1 rounded-2xl border-2 border-pink-200">
+                    <button id="mode-game-btn" onclick="switchMode('challenge')" class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-sm">
+                        💐 伴娘PK (計時)
+                    </button>
+                    <button id="mode-free-btn" onclick="switchMode('free')" class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-rose-400 hover:text-rose-600">
+                        🎙️ 試音模式
+                    </button>
+                </div>
+                <button onclick="openSyncModal()" id="sync-open-btn" class="px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-black bg-gradient-to-r from-sky-400 to-indigo-400 text-white shadow-sm hover:opacity-95 transition flex items-center gap-1 border-2 border-white">
+                    📡 <span id="sync-btn-label">手機/大螢幕同步</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 跨裝置同步設定彈出視窗 (手機收音 <-> 大螢幕顯示) -->
+    <div id="sync-modal" class="fixed inset-0 bg-rose-950/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white border-4 border-sky-300 rounded-[32px] max-w-lg w-full p-6 shadow-2xl relative overflow-hidden">
+            <div class="candy-stripes h-3.5 w-full absolute top-0 left-0"></div>
+            <div class="flex justify-between items-center mt-2 mb-3">
+                <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                    📡 手機無線收音 ➔ 大螢幕同步
+                </h3>
+                <button onclick="closeSyncModal()" class="text-slate-400 hover:text-rose-500 font-black text-xl px-2">✕</button>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed mb-4">
+                讓主持人拿著<b>手機在台上收音＆按開始</b>，婚宴會場的<b>筆電接投影幕即時同步顯示</b>紅色能量條與排行榜！
+            </p>
+
+            <!-- 角色選擇區 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <!-- 1. 大螢幕顯示端 -->
+                <div class="border-2 border-sky-200 bg-sky-50/70 rounded-2xl p-4 flex flex-col justify-between">
+                    <div>
+                        <span class="text-[11px] font-black bg-sky-500 text-white px-2.5 py-0.5 rounded-full">步驟 1：投影筆電點這裡</span>
+                        <h4 class="text-base font-black text-sky-900 mt-2">🖥️ 我是大螢幕顯示端</h4>
+                        <p class="text-xs text-sky-700 mt-1">在接投影機的電腦開啟，產生 4 位數房間配對碼。</p>
+                    </div>
+                    <div class="mt-4">
+                        <button onclick="startScreenReceiver()" id="start-host-btn" class="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-black text-xs shadow transition">
+                            ✨ 產生大螢幕配對碼
+                        </button>
+                        <div id="host-code-box" class="hidden mt-3 text-center bg-white rounded-xl p-2.5 border-2 border-sky-300">
+                            <div class="text-[11px] text-slate-400 font-bold">請在手機輸入此配對碼：</div>
+                            <div id="room-code-display" class="cute-number text-3xl font-black text-rose-500 tracking-widest my-0.5">----</div>
+                            <div id="host-conn-status" class="text-[11px] text-amber-600 font-bold">⏳ 等待手機連線中...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 手機麥克風收音端 -->
+                <div class="border-2 border-pink-200 bg-pink-50/70 rounded-2xl p-4 flex flex-col justify-between">
+                    <div>
+                        <span class="text-[11px] font-black bg-rose-500 text-white px-2.5 py-0.5 rounded-full">步驟 2：主持人手機點這裡</span>
+                        <h4 class="text-base font-black text-rose-900 mt-2">📱 我是手機收音遙控端</h4>
+                        <p class="text-xs text-rose-700 mt-1">用手機麥克風收音，並把即時能量與排行榜傳送給大螢幕！</p>
+                    </div>
+                    <div class="mt-3 flex flex-col gap-2">
+                        <input id="join-code-input" type="text" inputmode="numeric" maxlength="4" placeholder="輸入大螢幕 4 位數號碼"
+                            class="w-full text-center cute-number text-lg font-black tracking-widest bg-white border-2 border-pink-300 rounded-xl py-1.5 text-rose-600 focus:outline-none">
+                        <button onclick="connectPhoneSender()" id="connect-phone-btn" class="w-full py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs shadow transition">
+                            🔗 連線到大螢幕並收音
+                        </button>
+                        <button onclick="sendTestPingToScreen()" id="test-ping-btn" class="hidden w-full py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-xs shadow transition">
+                            ⚡ 點此測試讓大螢幕瞬間跳到 88%
+                        </button>
+                        <div id="phone-conn-status" class="text-[11px] text-center text-slate-500 font-bold"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-[11px] text-emerald-900 leading-relaxed flex flex-col gap-1">
+                <div>✅ <b>四通道雲端強制同步：</b>同時啟動雲端資料庫與 3 組高速伺服器！輸入相同 4 位數號碼後，手機收到的聲音就會即時推動大螢幕的紅色能量條。</div>
+                <div class="text-rose-600 font-bold">⚠️ 重要提醒：若你修改了程式碼，請記得重新上傳最新 HTML 到你的手機網址，確保「手機」跟「電腦」開的是同一版網頁喔！</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要遊戲區：左側數據與抗噪調節 + 中間可愛版尖叫能量罐 + 右側伴娘名單與捧花排行榜 -->
+    <main class="w-full max-w-4xl flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 my-3 items-center">
+
+        <!-- 左側欄：即時台下反應熱度與麥克風抗噪調節 -->
+        <div class="lg:col-span-4 flex flex-col gap-3 order-2 lg:order-1">
+            <!-- 即時音量讀數卡 -->
+            <div class="cute-card rounded-3xl p-4 relative overflow-hidden">
+                <div class="candy-stripes h-2.5 w-full absolute top-0 left-0"></div>
+                
+                <div class="flex justify-between items-center mt-1.5">
+                    <span class="text-xs font-black text-rose-400 tracking-wider">💖 台下掌聲尖叫熱度</span>
+                    <span id="scream-rank-tag" class="text-xs font-black px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-500">等待祝福中</span>
+                </div>
+                
+                <div class="flex items-baseline justify-between my-2">
+                    <div id="current-score" class="cute-number text-5xl sm:text-6xl font-bold text-rose-500 drop-shadow-sm">
+                        0.0
+                    </div>
+                    <span class="text-rose-400 font-black text-sm">幸福能量 %</span>
+                </div>
+
+                <!-- 最高紀錄與本局平均 -->
+                <div class="grid grid-cols-2 gap-2.5 pt-3 border-t-2 border-pink-100">
+                    <div class="bg-amber-50/90 p-2.5 rounded-2xl border-2 border-amber-200">
+                        <div class="text-[11px] text-amber-700 font-black">🌟 瞬間最高歡呼</div>
+                        <div class="flex items-baseline gap-1 mt-0.5">
+                            <span id="peak-score" class="cute-number text-2xl font-bold text-amber-500">0.0</span>
+                            <span class="text-[11px] text-amber-600 font-bold">%</span>
+                        </div>
+                    </div>
+                    <div class="bg-sky-50/90 p-2.5 rounded-2xl border-2 border-sky-200">
+                        <div class="text-[11px] text-sky-700 font-black">👏 全程平均熱度</div>
+                        <div class="flex items-baseline gap-1 mt-0.5">
+                            <span id="avg-score" class="cute-number text-2xl font-bold text-sky-500">0.0</span>
+                            <span class="text-[11px] text-sky-600 font-bold">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 婚禮現場抗噪 & 靈敏度微調 -->
+            <div class="cute-card rounded-3xl p-4">
+                <div class="flex justify-between items-center mb-1.5">
+                    <label for="sensitivity-slider" class="text-xs font-black text-slate-600 flex items-center gap-1">
+                        🎚️ 婚宴現場抗噪/難度調整
+                    </label>
+                    <span id="sensitivity-value" class="text-xs font-black bg-rose-100 px-2.5 py-0.5 rounded-full text-rose-600">0.6x (婚宴抗噪)</span>
+                </div>
+                <!-- 預設改為 0.6x 並支援最低 0.2x，解決太容易高分的問題 -->
+                <input id="sensitivity-slider" type="range" min="0.2" max="1.8" step="0.1" value="0.6" 
+                    class="w-full accent-rose-500 cursor-pointer h-2.5 bg-pink-100 rounded-lg">
+                <div class="flex justify-between text-[10px] text-slate-400 mt-1.5 font-bold">
+                    <span>0.2x 超嚴格(極難)</span>
+                    <span>0.6x 婚宴推薦</span>
+                    <span>1.8x 小包廂輕鬆</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2 bg-pink-50/80 p-2 rounded-xl border border-pink-100 leading-relaxed">
+                    💡 <b>主持人小撇步：</b>已啟用「高壓平方阻力」，平常講話只會在低檔，必須<b>全場大聲尖叫＋拍手</b>才會衝高分！若覺得還是太高，可往左調到 0.3x。
+                </p>
+
+                <!-- 免麥克風按住測試按鈕 -->
+                <div class="mt-2.5 pt-2.5 border-t border-pink-100 flex items-center justify-between gap-2">
+                    <span class="text-xs text-slate-400 font-bold">彩排測試動畫？</span>
+                    <button id="simulate-btn" 
+                        class="px-3 py-1.5 rounded-xl bg-pink-100 hover:bg-pink-200 active:bg-rose-500 active:text-white text-xs font-black text-rose-600 transition flex items-center gap-1">
+                        👏 按住模擬台下歡呼
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中間欄：可愛婚禮版《怪獸電力公司》尖叫能量罐本體 -->
+        <div class="lg:col-span-4 flex flex-col items-center justify-center order-1 lg:order-2 py-1">
+            
+            <!-- 尖叫罐外框容器 -->
+            <div id="canister-wrapper" class="relative flex flex-col items-center select-none">
+                
+                <!-- 可愛怪獸角裝飾 (毛怪藍紫斑點角) -->
+                <div class="relative flex items-center justify-center w-full">
+                    <div class="w-8 h-9 bg-gradient-to-br from-sky-300 to-purple-300 rounded-tl-full rounded-tr-lg -rotate-45 absolute -left-4 top-5 border-2 border-white shadow-md z-0"></div>
+                    <div class="w-8 h-9 bg-gradient-to-bl from-sky-300 to-purple-300 rounded-tr-full rounded-tl-lg rotate-45 absolute -right-4 top-5 border-2 border-white shadow-md z-0"></div>
+
+                    <!-- 1. 頂部愛心氣閥轉盤 -->
+                    <div class="flex flex-col items-center z-10">
+                        <div id="canister-valve" class="valve-wheel w-24 h-7 rounded-full border-2 border-white flex items-center justify-around px-2">
+                            <span class="text-xs">✨</span>
+                            <div class="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[10px]">💗</div>
+                            <span class="text-xs">✨</span>
+                        </div>
+                        <!-- 氣閥脖子與婚禮蝴蝶結 -->
+                        <div class="w-9 h-4 cute-cap border-x-2 border-white relative flex items-center justify-center">
+                            <div class="absolute -top-1 text-xl drop-shadow z-20">🎀</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 尖叫罐粉藍上蓋 (Top Cute Cap + 戀愛滿載警示燈) -->
+                <div class="w-56 sm:w-64 h-12 cute-cap rounded-t-[28px] border-2 border-white flex items-center justify-between px-5 relative z-10">
+                    <div class="pearl-stud"></div>
+                    <!-- 頂部滿載紅燈 -->
+                    <div class="flex flex-col items-center">
+                        <div id="top-alarm-light" class="w-14 h-5 rounded-full bg-rose-300 border-2 border-white shadow-inner transition-all flex items-center justify-center">
+                            <span class="text-[9px] font-black text-white drop-shadow">LOVE</span>
+                        </div>
+                        <span class="text-[8px] font-black tracking-widest text-sky-800 mt-0.5">HAPPY ENERGY</span>
+                    </div>
+                    <div class="pearl-stud"></div>
+                </div>
+
+                <!-- 3. 尖叫罐鮮黃色圓潤主瓶身 (Main Yellow Canister) -->
+                <div class="canister-body w-52 sm:w-60 h-[320px] sm:h-[355px] relative flex flex-col items-center justify-between py-3 px-4 z-10">
+                    
+                    <!-- 瓶身頂部可愛標語 -->
+                    <div class="w-full flex justify-between items-center border-b-2 border-amber-500/30 pb-1">
+                        <span class="text-[10px] font-black text-rose-600 bg-white/80 px-2 py-0.5 rounded-full shadow-sm">💍 LOVE-520</span>
+                        <span class="font-black text-xs tracking-wider text-amber-900">幸福尖叫罐</span>
+                        <span class="text-xs">💐</span>
+                    </div>
+
+                    <!-- 中央能量槽與兩側刻度區 -->
+                    <div class="flex items-center justify-center w-full flex-1 my-2 gap-2.5">
+                        
+                        <!-- 左側數字刻度線 -->
+                        <div class="h-full flex flex-col justify-between text-[11px] cute-number font-bold text-amber-900 py-1 text-right select-none">
+                            <span class="text-rose-600 font-black">100%</span>
+                            <span>80%</span>
+                            <span>60%</span>
+                            <span>40%</span>
+                            <span>20%</span>
+                            <span>0%</span>
+                        </div>
+
+                        <!-- 中央深色玻璃能量視窗 (The Red Energy Meter) -->
+                        <div class="gauge-recess w-16 sm:w-20 h-full rounded-full relative overflow-hidden flex flex-col justify-end p-1.5">
+                            
+                            <!-- 背景暗紅底格 -->
+                            <div class="w-full h-full bg-rose-950/50 rounded-full relative overflow-hidden flex flex-col justify-end">
+                                
+                                <!-- 最高峰值殘影線 (金色皇冠峰值線) -->
+                                <div id="peak-line" class="w-full h-1.5 bg-yellow-300 shadow-[0_0_10px_#fde047] absolute left-0 z-20 transition-all duration-150" style="bottom: 0%;"></div>
+
+                                <!-- 動態紅色能量條本體 -->
+                                <div id="energy-bar" class="energy-bar-fill w-full rounded-b-full relative overflow-hidden" style="height: 0%;">
+                                    <!-- 內部飄升愛心氣泡特效 -->
+                                    <div class="energy-bubble text-[10px] absolute left-2 bottom-2">🤍</div>
+                                    <div class="energy-bubble text-xs absolute right-2 bottom-6" style="animation-delay: 0.45s;">💖</div>
+                                    <div class="energy-bubble text-[9px] absolute left-1/2 bottom-4" style="animation-delay: 0.9s;">✨</div>
+                                </div>
+
+                                <!-- 圓潤分段遮罩 -->
+                                <div class="led-segments inset-0 absolute z-10 pointer-events-none"></div>
+                            </div>
+
+                            <!-- 弧形玻璃高光反射 -->
+                            <div class="glass-reflection inset-0 absolute z-30 rounded-full"></div>
+                        </div>
+
+                        <!-- 右側婚禮與怪獸電力公司可愛分級圖示 -->
+                        <div class="h-full flex flex-col justify-between text-sm py-1 select-none">
+                            <span title="捧花得主誕生！">💐</span>
+                            <span title="毛怪級全場暴動">👾</span>
+                            <span title="全場熱烈尖叫">🎉</span>
+                            <span title="大眼仔熱情掌聲">👏</span>
+                            <span title="阿布害羞微笑">👧</span>
+                            <span title="安靜聆聽">🤫</span>
+                        </div>
+                    </div>
+
+                    <!-- 瓶身底部粉色糖果警戒條與小字 -->
+                    <div class="w-full">
+                        <div class="candy-stripes h-3 w-full rounded-full border border-pink-300"></div>
+                        <div class="text-[9px] font-black text-center text-amber-900 mt-1 tracking-wide">
+                            ✨ MONSTERS WEDDING BOUQUET CUP ✨
+                        </div>
+                    </div>
+
+                    <!-- 左右粉紫圓潤把手護欄 -->
+                    <div class="w-3.5 h-36 bg-pink-300 border-2 border-white rounded-l-2xl absolute -left-3.5 top-1/2 -translate-y-1/2 -z-10 shadow-md"></div>
+                    <div class="w-3.5 h-36 bg-pink-300 border-2 border-white rounded-r-2xl absolute -right-3.5 top-1/2 -translate-y-1/2 -z-10 shadow-md"></div>
+                </div>
+
+                <!-- 4. 尖叫罐底座 (Bottom Cute Cap) -->
+                <div class="w-56 sm:w-64 h-10 cute-cap rounded-b-[24px] border-2 border-white flex items-center justify-between px-5 z-10">
+                    <div class="pearl-stud"></div>
+                    <div class="text-[10px] font-black text-sky-900 tracking-widest">SWEET & HAPPINESS</div>
+                    <div class="pearl-stud"></div>
+                </div>
+            </div>
+
+            <!-- 倒數計時或狀態浮動提示 -->
+            <div id="status-banner" class="mt-3 text-center font-black text-xs sm:text-sm px-4 py-2 rounded-full bg-white border-2 border-pink-300 text-rose-500 shadow-md">
+                👇 點擊右方按鈕開啟麥克風，準備收集全場掌聲與尖叫！
+            </div>
+        </div>
+
+        <!-- 右側欄：伴娘控台與幸福捧花排行榜 -->
+        <div class="lg:col-span-4 flex flex-col gap-3 order-3">
+            
+            <!-- 伴娘挑戰賽主控台 -->
+            <div class="cute-card rounded-3xl p-4 flex flex-col gap-2.5">
+                
+                <!-- 伴娘名稱輸入與計時秒數設定 -->
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center gap-2">
+                        <label for="player-name" class="text-xs font-black text-rose-500 shrink-0">👰‍♀️ 伴娘名字：</label>
+                        <input id="player-name" type="text" placeholder="例如：伴娘 小美" maxlength="12" value="伴娘 1 號"
+                            class="w-full bg-pink-50/80 border-2 border-pink-200 rounded-xl px-3 py-1.5 text-sm font-black text-rose-600 focus:outline-none focus:border-rose-400">
+                    </div>
+
+                    <!-- 收音秒數選擇 (伴娘講完話拉票、或邊講邊歡呼) -->
+                    <div class="flex items-center justify-between text-xs bg-amber-50/80 px-3 py-1.5 rounded-xl border border-amber-200">
+                        <span class="font-bold text-amber-800">⏱️ 台下歡呼收音時間：</span>
+                        <select id="duration-select" class="bg-white border border-amber-300 rounded-lg px-2 py-0.5 font-black text-amber-600 focus:outline-none">
+                            <option value="5">5 秒 (快速尖叫)</option>
+                            <option value="8" selected>8 秒 (掌聲+尖叫推薦)</option>
+                            <option value="10">10 秒 (伴娘拉票歡呼)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 主行動按鈕：開啟麥克風 / 開始收音搶捧花 -->
+                <button id="main-action-btn" onclick="handleMainAction()" 
+                    class="w-full py-3.5 px-4 rounded-2xl font-black text-base sm:text-lg text-white bg-gradient-to-b from-rose-400 via-pink-500 to-rose-500 hover:from-rose-300 hover:to-pink-500 active:scale-95 transition-all shadow-[0_5px_0_#be123c,0_8px_15px_rgba(244,63,94,0.35)] flex items-center justify-center gap-2 cursor-pointer mt-1">
+                    <span id="main-btn-icon" class="text-xl">🎙️</span>
+                    <span id="main-btn-text">啟動麥克風・開始搶捧花</span>
+                </button>
+
+                <!-- 副按鈕列：歸零峰值與手動登錄 -->
+                <div class="grid grid-cols-2 gap-2 mt-0.5">
+                    <button onclick="resetPeak()" class="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-600 transition flex items-center justify-center gap-1">
+                        🔄 畫面分數歸零
+                    </button>
+                    <button onclick="saveCurrentPeakToBoard()" class="py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-xs font-black text-amber-950 transition flex items-center justify-center gap-1 shadow-sm">
+                        📌 手動登錄成績
+                    </button>
+                </div>
+            </div>
+
+            <!-- 幸福捧花得主排行榜 (Leaderboard) -->
+            <div class="cute-card rounded-3xl p-4 flex-1 flex flex-col">
+                <div class="flex items-center justify-between border-b-2 border-pink-100 pb-2 mb-2">
+                    <h2 class="text-sm font-black text-rose-500 flex items-center gap-1">
+                        💐 幸福捧花爭奪排行榜
+                    </h2>
+                    <button onclick="clearLeaderboard()" class="text-[11px] font-bold text-slate-400 hover:text-rose-500 transition">
+                        清空重來
+                    </button>
+                </div>
+
+                <div id="leaderboard-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    <!-- 由 JS 動態渲染排行榜 -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 伴娘挑戰結算彈出視窗 (Modal) -->
+    <div id="result-modal" class="fixed inset-0 bg-rose-950/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white border-4 border-pink-300 rounded-[32px] max-w-md w-full p-6 text-center shadow-2xl relative overflow-hidden">
+            <div class="candy-stripes h-3.5 w-full absolute top-0 left-0"></div>
+            
+            <div id="modal-badge" class="inline-block px-3.5 py-1 rounded-full bg-pink-100 text-rose-500 border border-pink-200 text-xs font-black mt-2">
+                💐 伴娘祝福人氣認證 💐
+            </div>
+            
+            <h3 id="modal-player-title" class="text-2xl font-black text-slate-800 mt-2">伴娘 1 號 的全場歡呼</h3>
+            
+            <div class="my-4 bg-gradient-to-b from-pink-50 to-rose-50 rounded-3xl p-4 border-2 border-pink-200">
+                <div class="text-xs text-rose-400 font-black">🌟 台下最高尖叫掌聲能量</div>
+                <div class="cute-number text-6xl font-bold text-rose-500 my-1 drop-shadow-sm">
+                    <span id="modal-peak-score">0.0</span><span class="text-2xl">%</span>
+                </div>
+                <div class="text-xs text-sky-600 font-black mt-1">
+                    👏 全程平均歡呼熱度：<span id="modal-avg-score" class="cute-number text-sm">0.0</span>%
+                </div>
+                <div id="modal-monster-rank" class="mt-3 inline-block bg-white px-4 py-1.5 rounded-full text-sm font-black text-rose-500 border-2 border-pink-200 shadow-sm">
+                    評級：人氣伴娘
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 font-bold text-sm text-slate-600 transition">
+                    查看捧花榜單
+                </button>
+                <button onclick="closeModal(); startFiveSecondChallenge();" class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-rose-400 to-pink-500 hover:from-rose-500 hover:to-pink-600 font-black text-sm text-white transition shadow-md">
+                    👰‍♀️ 換下一位伴娘！
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部簡易提示 -->
+    <footer class="text-center text-[11px] font-bold text-rose-400/80 py-1">
+        💕 婚禮小遊戲玩法：請伴娘說完對新人的祝福後，按下開始，由台下賓客用「掌聲＋尖叫聲」幫伴娘集氣，最高分獲得捧花！
+    </footer>
+
+    <script>
+        // ================= 狀態變數定義 =================
+        let audioContext = null;
+        let analyser = null;
+        let microphoneStream = null;
+        let dataArray = null;
+        let isMicActive = false;
+
+        let currentMode = 'challenge'; // 預設直接進入「伴娘PK搶捧花」計時模式
+        let isChallengeRunning = false;
+        let challengeSamples = [];
+
+        let currentEnergy = 0;     // 當前平滑後的能量值 (0 ~ 100)
+        let peakEnergy = 0;        // 最高瞬間能量 (0 ~ 100，保留1位小數)
+        let avgEnergy = 0;         // 平均值
+        let sensitivity = 0.6;     // 預設調降為 0.6x 婚宴抗噪模式，避免太容易高分
+        let isSimulating = false;  // 是否正在按住模擬歡呼按鈕
+        let valveAngle = 0;        // 頂部閥門旋轉角度
+
+        // ================= 跨裝置同步變數 (多伺服器 MQTT 並聯 + PeerJS + 本機多視窗同步) =================
+        let mqttClients = [];      // 同時連線 3 組國際高速雲端 Broker，只要任一組通就 100% 同步
+        let peer = null;
+        let syncConn = null;
+        let localChannel = null;   // 同台電腦開兩個分頁測試時 0 延遲同步
+        let roomCode = '';
+        let syncRole = 'standalone'; // 'standalone' | 'screen' (大螢幕接收端) | 'phone' (手機收音發送端)
+        let isRemoteConnected = false;
+        let lastSyncSentTime = 0;
+        let lastPacketReceivedTime = 0;
+
+        // 預設空白或溫馨提示榜單，讓第一名直接顯示「捧花暫定得主」
+        let leaderboard = [];
+
+        // DOM 元素快取
+        const energyBarEl = document.getElementById('energy-bar');
+        const peakLineEl = document.getElementById('peak-line');
+        const currentScoreEl = document.getElementById('current-score');
+        const peakScoreEl = document.getElementById('peak-score');
+        const avgScoreEl = document.getElementById('avg-score');
+        const screamRankTagEl = document.getElementById('scream-rank-tag');
+        const topAlarmLightEl = document.getElementById('top-alarm-light');
+        const canisterWrapperEl = document.getElementById('canister-wrapper');
+        const canisterValveEl = document.getElementById('canister-valve');
+        const statusBannerEl = document.getElementById('status-banner');
+        const micStatusBadgeEl = document.getElementById('mic-status-badge');
+        const mainActionBtn = document.getElementById('main-action-btn');
+        const mainBtnText = document.getElementById('main-btn-text');
+        const mainBtnIcon = document.getElementById('main-btn-icon');
+        const sensitivitySlider = document.getElementById('sensitivity-slider');
+        const sensitivityValueEl = document.getElementById('sensitivity-value');
+        const simulateBtn = document.getElementById('simulate-btn');
+        const durationSelect = document.getElementById('duration-select');
+
+        // ================= 音效合成器 (Tone.js) =================
+        let synth = null;
+        function playSoundEffect(type) {
+            try {
+                if (!synth && typeof Tone !== 'undefined') {
+                    synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                    synth.volume.value = -8;
+                }
+                if (!synth) return;
+
+                if (type === 'beep') {
+                    synth.triggerAttackRelease("E5", "16n");
+                } else if (type === 'start') {
+                    synth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n");
+                } else if (type === 'full') {
+                    synth.triggerAttackRelease(["F5", "A5", "C6"], "4n");
+                } else if (type === 'finish') {
+                    const now = Tone.now();
+                    synth.triggerAttackRelease("C5", "16n", now);
+                    synth.triggerAttackRelease("E5", "16n", now + 0.1);
+                    synth.triggerAttackRelease("G5", "16n", now + 0.2);
+                    synth.triggerAttackRelease(["C6", "E6"], "4n", now + 0.3);
+                }
+            } catch (e) {
+                // 忽略瀏覽器尚未解鎖音效的狀況
+            }
+        }
+
+        // ================= 初始化與事件綁定 =================
+        window.onload = function () {
+            renderLeaderboard();
+
+            // 靈敏度滑桿事件
+            sensitivitySlider.addEventListener('input', (e) => {
+                sensitivity = parseFloat(e.target.value);
+                let modeLabel = "";
+                if (sensitivity <= 0.4) modeLabel = " (超嚴格抗噪)";
+                else if (sensitivity <= 0.8) modeLabel = " (婚宴抗噪)";
+                else if (sensitivity <= 1.2) modeLabel = " (一般音量)";
+                else modeLabel = " (輕鬆拉票)";
+                sensitivityValueEl.textContent = sensitivity.toFixed(1) + 'x' + modeLabel;
+            });
+
+            // 模擬歡呼按鈕 (支援手機觸控與電腦滑鼠長按)
+            const startSim = (e) => {
+                e.preventDefault();
+                isSimulating = true;
+            };
+            const stopSim = (e) => {
+                e.preventDefault();
+                isSimulating = false;
+            };
+
+            simulateBtn.addEventListener('mousedown', startSim);
+            simulateBtn.addEventListener('mouseup', stopSim);
+            simulateBtn.addEventListener('mouseleave', stopSim);
+            simulateBtn.addEventListener('touchstart', startSim, { passive: false });
+            simulateBtn.addEventListener('touchend', stopSim);
+
+            // 啟動視覺渲染迴圈
+            requestAnimationFrame(updateMeterLoop);
+        };
+
+        // ================= 麥克風串流啟動 =================
+        async function initMicrophone() {
+            if (isMicActive) return true;
+
+            try {
+                statusBannerEl.textContent = "⏳ 正在開啟麥克風權限...";
+                
+                // 要求音訊串流，關閉自動增益與降噪以真實反映「台下誰的掌聲尖叫比較大聲」
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    },
+                    video: false
+                });
+
+                microphoneStream = stream;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioCtx();
+
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
+                const source = audioContext.createMediaStreamSource(stream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.5;
+                source.connect(analyser);
+
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                isMicActive = true;
+
+                // 更新右上角麥克風狀態徽章
+                micStatusBadgeEl.className = "text-[11px] sm:text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 flex items-center gap-1";
+                micStatusBadgeEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 麥克風收音正常`;
+
+                updateActionUI();
+                playSoundEffect('start');
+                return true;
+
+            } catch (err) {
+                console.error("麥克風開啟失敗:", err);
+                statusBannerEl.textContent = "⚠️ 無法開啟麥克風！請允許瀏覽器權限，或按左側「模擬台下歡呼」按鈕。";
+                return false;
+            }
+        }
+
+        // ================= 主按鈕操作邏輯 =================
+        async function handleMainAction() {
+            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                Tone.start();
+            }
+
+            // 如果目前是「大螢幕端」且已連上手機，在大螢幕按下按鈕時，直接遠端遙控手機開始計時收音！
+            if (syncRole === 'screen' && isRemoteConnected) {
+                const playerName = document.getElementById('player-name').value;
+                const duration = durationSelect ? durationSelect.value : 8;
+                sendSyncPayload({
+                    type: 'remoteCommand',
+                    action: currentMode === 'challenge' ? 'startChallenge' : 'resetPeak',
+                    playerName: playerName,
+                    duration: duration
+                });
+                return;
+            }
+
+            if (!isMicActive) {
+                const ok = await initMicrophone();
+                if (!ok) return;
+                if (currentMode === 'challenge') {
+                    startFiveSecondChallenge();
+                }
+            } else {
+                if (currentMode === 'challenge') {
+                    if (!isChallengeRunning) {
+                        startFiveSecondChallenge();
+                    }
+                } else {
+                    resetPeak();
+                    statusBannerEl.textContent = "🎙️ 試音模式：分數已歸零，可以請台下試著拍手或歡呼看看高度！";
+                }
+            }
+        }
+
+        // ================= 切換遊戲模式 =================
+        function switchMode(mode) {
+            if (isChallengeRunning) return;
+            currentMode = mode;
+
+            const freeBtn = document.getElementById('mode-free-btn');
+            const gameBtn = document.getElementById('mode-game-btn');
+
+            if (mode === 'free') {
+                freeBtn.className = "flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-sm";
+                gameBtn.className = "flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-rose-400 hover:text-rose-600";
+            } else {
+                gameBtn.className = "flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black transition-all bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-sm";
+                freeBtn.className = "flex-1 sm:flex-initial px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-rose-400 hover:text-rose-600";
+            }
+
+            updateActionUI();
+        }
+
+        function updateActionUI() {
+            const sec = durationSelect ? durationSelect.value : 8;
+            if (!isMicActive) {
+                mainBtnIcon.textContent = "🎙️";
+                mainBtnText.textContent = currentMode === 'challenge' ? `啟動麥克風・開始 ${sec} 秒歡呼PK` : "啟動麥克風試音";
+                statusBannerEl.textContent = "👇 請伴娘先講完祝福的話，再按下按鈕收集台下掌聲與尖叫！";
+                return;
+            }
+
+            if (currentMode === 'free') {
+                mainBtnIcon.textContent = "🔄";
+                mainBtnText.textContent = "重置最高峰值再試音一次";
+                statusBannerEl.textContent = "🌸 試音暖場中：可先測試現場音響與掌聲大小，調整左側抗噪滑桿！";
+            } else {
+                mainBtnIcon.textContent = "💐";
+                mainBtnText.textContent = `開始收集台下歡呼 (${sec}秒)`;
+                statusBannerEl.textContent = "👰‍♀️ 伴娘祝福完畢後按下開始！台下賓客請用力鼓掌＋尖叫幫她搶捧花！";
+            }
+        }
+
+        // 當更改秒數時同步更新按鈕文字
+        if (durationSelect) {
+            durationSelect.addEventListener('change', updateActionUI);
+        }
+
+        // ================= 伴娘台下歡呼計時挑戰流程 =================
+        function startFiveSecondChallenge() {
+            if (isChallengeRunning) return;
+            isChallengeRunning = true;
+
+            resetPeak();
+            challengeSamples = [];
+
+            let countdown = 3;
+            mainActionBtn.disabled = true;
+            mainActionBtn.classList.add('opacity-60', 'cursor-not-allowed');
+
+            const playerName = (document.getElementById('player-name').value || "伴娘").trim();
+            statusBannerEl.textContent = `📣 請台下賓客準備為「${playerName}」尖叫鼓掌... ${countdown}`;
+            mainBtnIcon.textContent = "⏳";
+            mainBtnText.textContent = `全場準備倒數 ${countdown}...`;
+            playSoundEffect('beep');
+
+            const prepInterval = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                    statusBannerEl.textContent = `📣 請台下賓客準備為「${playerName}」尖叫鼓掌... ${countdown}`;
+                    mainBtnText.textContent = `全場準備倒數 ${countdown}...`;
+                    playSoundEffect('beep');
+                } else {
+                    clearInterval(prepInterval);
+                    runRecordingSession();
+                }
+            }, 900);
+        }
+
+        function runRecordingSession() {
+            playSoundEffect('start');
+            const totalSec = parseFloat(durationSelect ? durationSelect.value : 8);
+            let timeLeft = totalSec;
+
+            const timerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                if (timeLeft > 0) {
+                    statusBannerEl.textContent = `🎉 台下請尖叫＋拍手！！剩餘 ${timeLeft.toFixed(1)} 秒 🎉`;
+                    mainBtnIcon.textContent = "👏";
+                    mainBtnText.textContent = `幸福能量收集中... (${timeLeft.toFixed(1)}s)`;
+                } else {
+                    clearInterval(timerInterval);
+                    finishChallengeSession();
+                }
+            }, 100);
+        }
+
+        function finishChallengeSession() {
+            isChallengeRunning = false;
+            mainActionBtn.disabled = false;
+            mainActionBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+            playSoundEffect('finish');
+
+            const finalPeak = parseFloat(peakEnergy.toFixed(1));
+            const finalAvg = challengeSamples.length > 0
+                ? parseFloat((challengeSamples.reduce((a, b) => a + b, 0) / challengeSamples.length).toFixed(1))
+                : 0.0;
+
+            avgScoreEl.textContent = finalAvg.toFixed(1);
+
+            const playerInput = document.getElementById('player-name');
+            const playerName = (playerInput.value || "人氣伴娘").trim();
+            const rankTitle = getMonsterRank(finalPeak).title;
+
+            // 加入排行榜
+            addEntryToLeaderboard(playerName, finalPeak, finalAvg, rankTitle);
+
+            // 自動遞增下一位伴娘編號 (例如：伴娘 1 號 -> 伴娘 2 號)
+            const match = playerName.match(/(伴娘|挑戰者)\s*(\d+)\s*號?/);
+            if (match) {
+                const prefix = match[1];
+                const nextNum = parseInt(match[2], 10) + 1;
+                playerInput.value = `${prefix} ${nextNum} 號`;
+            }
+
+            // 顯示結算視窗
+            document.getElementById('modal-player-title').textContent = `${playerName} 的祝福熱度`;
+            document.getElementById('modal-peak-score').textContent = finalPeak.toFixed(1);
+            document.getElementById('modal-avg-score').textContent = finalAvg.toFixed(1);
+            document.getElementById('modal-monster-rank').textContent = `全場反應：${rankTitle}`;
+
+            const modal = document.getElementById('result-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // 若為手機遙控端，同步通知大螢幕跳出結算視窗與最新排行榜
+            sendSyncPayload({
+                type: 'showResultModal',
+                playerName,
+                finalPeak,
+                finalAvg,
+                rankTitle,
+                nextPlayerName: playerInput.value,
+                leaderboard: leaderboard
+            });
+
+            updateActionUI();
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('result-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            sendSyncPayload({ type: 'closeResultModal' });
+        }
+
+        // ================= 音量計算與動畫更新迴圈 (高抗噪平方壓縮版) =================
+        function updateMeterLoop() {
+            // 如果這台電腦是「大螢幕接收端」且沒有自己在按模擬鈕，直接渲染從手機傳來的音量
+            if (syncRole === 'screen' && !isSimulating) {
+                // 若超過 400ms 沒收到新封包則平滑回落，有收到封包則直接顯示手機傳來的高度
+                if (performance.now() - lastPacketReceivedTime > 400) {
+                    currentEnergy = Math.max(0, currentEnergy - 1.2);
+                }
+                renderCanisterVisuals(parseFloat(currentEnergy.toFixed(1)));
+                requestAnimationFrame(updateMeterLoop);
+                return;
+            }
+
+            let rawVolume = 0;
+
+            if (isSimulating) {
+                // 按住模擬按鈕時，產生漸進式的歡呼效果 (約在 65% ~ 88% 跳動)
+                rawVolume = Math.min(89, currentEnergy + 4 + (Math.random() * 8 - 2.5));
+            } else if (isMicActive && analyser && dataArray) {
+                analyser.getByteTimeDomainData(dataArray);
+                let sumSquares = 0;
+                let maxSample = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    const normalized = Math.abs((dataArray[i] - 128) / 128); // 0.0 ~ 1.0
+                    sumSquares += normalized * normalized;
+                    if (normalized > maxSample) maxSample = normalized;
+                }
+                const rms = Math.sqrt(sumSquares / dataArray.length);
+
+                // 以 RMS (持續掌聲與歡呼能量 85%) 為主，瞬間峰值 (15%) 為輔，避免單一拍手聲就瞬間衝頂
+                const combinedSignal = (rms * 0.85 + maxSample * 0.15) * sensitivity;
+
+                // 提高婚宴環境底噪門檻 (過濾現場背景音樂與零星交談聲)
+                const noiseGate = 0.035;
+                if (combinedSignal <= noiseGate) {
+                    rawVolume = 0;
+                } else {
+                    // 【核心修正】採用平方級阻力曲線 (指數 1.65)：
+                    // 讓中低音量非常不容易衝高，必須全場持續大聲尖叫鼓掌才能推高能量條！
+                    // 以預設 sensitivity = 0.6x 為例：
+                    // - 單人正常講話 (rms ~ 0.10) -> 約 4% ~ 8%
+                    // - 零星拍手或單人大喊 (rms ~ 0.25) -> 約 22% ~ 32%
+                    // - 熱烈掌聲加歡呼 (rms ~ 0.45) -> 約 55% ~ 70%
+                    // - 全場暴動極限尖叫 (rms ~ 0.65+) -> 才會衝上 85% ~ 98%
+                    const effectiveSignal = Math.max(0, combinedSignal - noiseGate);
+                    const normalized = Math.min(1, effectiveSignal / 0.48);
+                    rawVolume = Math.pow(normalized, 1.65) * 100;
+                }
+            }
+
+            // 平滑上升與回落 (上升稍微穩重一點，不會因一下拍手就暴衝)
+            if (rawVolume > currentEnergy) {
+                currentEnergy = currentEnergy + (rawVolume - currentEnergy) * 0.22;
+            } else {
+                currentEnergy = Math.max(0, currentEnergy - 1.6);
+            }
+
+            const displayEnergy = parseFloat(currentEnergy.toFixed(1));
+
+            // 更新最高峰值
+            if (displayEnergy > peakEnergy) {
+                peakEnergy = displayEnergy;
+                peakScoreEl.textContent = peakEnergy.toFixed(1);
+                peakLineEl.style.bottom = `${Math.min(100, peakEnergy)}%`;
+            }
+
+            // 如果在挑戰期間，收集樣本算平均值
+            if (isChallengeRunning) {
+                challengeSamples.push(displayEnergy);
+                const runningAvg = challengeSamples.reduce((a, b) => a + b, 0) / challengeSamples.length;
+                avgScoreEl.textContent = runningAvg.toFixed(1);
+            }
+
+            renderCanisterVisuals(displayEnergy);
+
+            // 若目前為「手機收音發送端」，每 60ms 將即時音量、峰值、倒數文字與榜單同步給大螢幕
+            const now = performance.now();
+            if (syncRole === 'phone' && (now - lastSyncSentTime > 60)) {
+                lastSyncSentTime = now;
+                sendSyncPayload({
+                    type: 'telemetry',
+                    currentEnergy: displayEnergy,
+                    peakEnergy: peakEnergy,
+                    avgText: avgScoreEl.textContent,
+                    bannerText: statusBannerEl.textContent,
+                    btnText: mainBtnText.textContent,
+                    btnIcon: mainBtnIcon.textContent,
+                    playerName: document.getElementById('player-name').value,
+                    leaderboard: leaderboard
+                });
+            }
+
+            requestAnimationFrame(updateMeterLoop);
+        }
+
+        // 抽離視覺更新邏輯，讓單機與大螢幕接收端共用
+        function renderCanisterVisuals(displayEnergy) {
+            // 1. 更新中間紅色能量條高度與數位分數
+            energyBarEl.style.height = `${Math.min(100, displayEnergy)}%`;
+            currentScoreEl.textContent = displayEnergy.toFixed(1);
+
+            // 2. 旋轉頂部愛心氣閥轉輪
+            if (displayEnergy > 3) {
+                valveAngle += displayEnergy * 0.12;
+                canisterValveEl.style.transform = `rotate(${valveAngle}deg)`;
+            }
+
+            // 3. 更新等級標籤與破表特效
+            const rankInfo = getMonsterRank(displayEnergy);
+            screamRankTagEl.textContent = rankInfo.title;
+            screamRankTagEl.className = `text-xs font-black px-2.5 py-0.5 rounded-full ${rankInfo.badgeClass}`;
+
+            // 當能量超過 85% 時觸發尖叫罐歡樂震動與頂部愛心燈閃爍
+            if (displayEnergy >= 85) {
+                topAlarmLightEl.classList.add('alarm-active');
+                canisterWrapperEl.classList.add('overcharge-shake');
+            } else {
+                topAlarmLightEl.classList.remove('alarm-active');
+                canisterWrapperEl.classList.remove('overcharge-shake');
+            }
+        }
+
+        // ================= 手機 ➔ 大螢幕跨裝置同步邏輯 (雲端穿透 MQTT + PeerJS + BroadcastChannel) =================
+        function openSyncModal() {
+            const modal = document.getElementById('sync-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeSyncModal() {
+            const modal = document.getElementById('sync-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function getSyncTopic(code) {
+            return `monsters_wedding_bouquet_520_sync_${code}`;
+        }
+
+        // 統一發送同步訊息 (同時透過 3 組雲端 MQTT、PeerJS 與本機分頁通道廣播，確保 100% 不漏接)
+        function sendSyncPayload(payload) {
+            if (!roomCode) return;
+            const jsonStr = JSON.stringify(payload);
+            const topic = getSyncTopic(roomCode);
+
+            // 1. 多組雲端 MQTT 伺服器同時推播 (穿透所有 4G/5G 與 Wi-Fi 防火牆)
+            if (mqttClients && mqttClients.length > 0) {
+                mqttClients.forEach(client => {
+                    if (client && client.connected) {
+                        try { client.publish(topic, jsonStr, { qos: 0 }); } catch (e) {}
+                    }
+                });
+            }
+            // 2. PeerJS 點對點高速通道
+            if (syncConn && syncConn.open) {
+                try { syncConn.send(payload); } catch (e) {}
+            }
+            // 3. 同一台電腦不同分頁測試通道
+            if (localChannel) {
+                try { localChannel.postMessage(payload); } catch (e) {}
+            }
+        }
+
+        // 手機端手動發送 88% 測試訊號給大螢幕，確認連線暢通
+        function sendTestPingToScreen() {
+            currentEnergy = 88.8;
+            peakEnergy = Math.max(peakEnergy, 88.8);
+            peakScoreEl.textContent = peakEnergy.toFixed(1);
+            peakLineEl.style.bottom = `${Math.min(100, peakEnergy)}%`;
+            sendSyncPayload({
+                type: 'telemetry',
+                currentEnergy: 88.8,
+                peakEnergy: peakEnergy,
+                avgText: "88.8",
+                bannerText: "⚡ 收到手機測試訊號！大螢幕與手機已 100% 同步連通！",
+                btnText: mainBtnText.textContent,
+                btnIcon: "⚡",
+                playerName: document.getElementById('player-name').value,
+                leaderboard: leaderboard
+            });
+            const statusEl = document.getElementById('phone-conn-status');
+            statusEl.textContent = "⚡ 已發送 88.8% 能量到大螢幕！請看大螢幕有沒有跳起來！";
+        }
+
+        // 統一處理收到的同步封包
+        function handleIncomingSyncData(data) {
+            if (!data || !data.type) return;
+
+            // 大螢幕收到手機連入的握手訊號
+            if (data.type === 'phoneHello' && syncRole === 'screen') {
+                onScreenConnectedSuccess();
+                sendSyncPayload({ type: 'screenAck' });
+                return;
+            }
+
+            // 手機收到大螢幕確認訊號
+            if (data.type === 'screenAck' && syncRole === 'phone') {
+                onPhoneConnectedSuccess();
+                return;
+            }
+
+            // 手機收到大螢幕按下的遠端遙控指令 (例如在大螢幕按「開始收集歡呼」)
+            if (data.type === 'remoteCommand' && syncRole === 'phone') {
+                if (data.playerName) {
+                    document.getElementById('player-name').value = data.playerName;
+                }
+                if (data.duration && durationSelect) {
+                    durationSelect.value = data.duration;
+                }
+                if (data.action === 'startChallenge' && !isChallengeRunning) {
+                    startFiveSecondChallenge();
+                } else if (data.action === 'resetPeak') {
+                    resetPeak();
+                }
+                return;
+            }
+
+            // 大螢幕接收來自手機的即時音量與狀態數據
+            if (syncRole === 'screen') {
+                lastPacketReceivedTime = performance.now();
+                if (!isRemoteConnected) {
+                    onScreenConnectedSuccess();
+                }
+
+                if (data.type === 'telemetry') {
+                    currentEnergy = Number(data.currentEnergy) || 0;
+                    peakEnergy = Number(data.peakEnergy) || 0;
+                    peakScoreEl.textContent = peakEnergy.toFixed(1);
+                    peakLineEl.style.bottom = `${Math.min(100, peakEnergy)}%`;
+                    avgScoreEl.textContent = data.avgText || "0.0";
+                    if (data.bannerText) statusBannerEl.textContent = data.bannerText;
+                    if (data.btnText) mainBtnText.textContent = data.btnText;
+                    if (data.btnIcon) mainBtnIcon.textContent = data.btnIcon;
+                    if (data.playerName && document.activeElement !== document.getElementById('player-name')) {
+                        document.getElementById('player-name').value = data.playerName;
+                    }
+                    if (Array.isArray(data.leaderboard)) {
+                        leaderboard = data.leaderboard;
+                        renderLeaderboard();
+                    }
+                    // 立即刷新一次大螢幕畫面，確保零延遲跳動
+                    renderCanisterVisuals(parseFloat(currentEnergy.toFixed(1)));
+                } else if (data.type === 'showResultModal') {
+                    playSoundEffect('finish');
+                    if (Array.isArray(data.leaderboard)) {
+                        leaderboard = data.leaderboard;
+                        renderLeaderboard();
+                    }
+                    if (data.nextPlayerName) {
+                        document.getElementById('player-name').value = data.nextPlayerName;
+                    }
+                    document.getElementById('modal-player-title').textContent = `${data.playerName} 的祝福熱度`;
+                    document.getElementById('modal-peak-score').textContent = Number(data.finalPeak).toFixed(1);
+                    document.getElementById('modal-avg-score').textContent = Number(data.finalAvg).toFixed(1);
+                    document.getElementById('modal-monster-rank').textContent = `全場反應：${data.rankTitle}`;
+                    const modal = document.getElementById('result-modal');
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                } else if (data.type === 'closeResultModal') {
+                    const modal = document.getElementById('result-modal');
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            }
+        }
+
+        function onScreenConnectedSuccess() {
+            if (isRemoteConnected) return;
+            isRemoteConnected = true;
+            const statusEl = document.getElementById('host-conn-status');
+            statusEl.className = "text-xs text-emerald-600 font-black mt-1";
+            statusEl.textContent = "✅ 手機已成功連線！大螢幕將即時同步";
+            document.getElementById('sync-btn-label').textContent = `🖥️ 大螢幕同步中 (${roomCode})`;
+            micStatusBadgeEl.className = "text-[11px] sm:text-xs font-black px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-300 flex items-center gap-1";
+            micStatusBadgeEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-sky-500 animate-ping"></span> 已連上手機無線收音`;
+            statusBannerEl.textContent = "✅ 已連上手機麥克風！直接對著手機歡呼，或在手機/電腦按下開始即可！";
+            mainBtnIcon.textContent = "💐";
+            mainBtnText.textContent = "開始收集台下歡呼 (遙控手機)";
+            playSoundEffect('start');
+            setTimeout(() => closeSyncModal(), 600);
+        }
+
+        function onPhoneConnectedSuccess() {
+            if (isRemoteConnected) return;
+            isRemoteConnected = true;
+            const statusEl = document.getElementById('phone-conn-status');
+            statusEl.className = "text-xs text-emerald-600 font-black text-center";
+            statusEl.textContent = "✅ 已成功連上大螢幕！可點上方黃色按鈕測試跳動！";
+            document.getElementById('test-ping-btn').classList.remove('hidden');
+            document.getElementById('sync-btn-label').textContent = `📱 手機收音同步中 (${roomCode})`;
+            statusBannerEl.textContent = "📱 手機無線收音同步中！對著手機歡呼，大螢幕就會跟著跳動！";
+            playSoundEffect('start');
+        }
+
+        // 建立雲端同步通道 (同時連線 3 組國際雲端伺服器 + BroadcastChannel + PeerJS)
+        function setupSyncChannels(code, onReadyCallback) {
+            roomCode = code;
+            isRemoteConnected = false;
+            const topic = getSyncTopic(code);
+
+            // 通道 A：BroadcastChannel (若在同一台電腦開兩個視窗測試，0 秒直連)
+            if ('BroadcastChannel' in window) {
+                if (localChannel) localChannel.close();
+                localChannel = new BroadcastChannel(topic);
+                localChannel.onmessage = (ev) => handleIncomingSyncData(ev.data);
+            }
+
+            // 通道 B：同時並聯 3 組國際公開 WebSocket MQTT 伺服器 (避免單一伺服器被台灣電信商或防火牆擋住)
+            if (typeof mqtt !== 'undefined') {
+                mqttClients.forEach(c => { try { c.end(true); } catch (e) {} });
+                mqttClients = [];
+
+                const brokers = [
+                    'wss://broker.emqx.io:8084/mqtt',
+                    'wss://broker.hivemq.com:8884/mqtt',
+                    'wss://test.mosquitto.org:8081/mqtt'
+                ];
+
+                let readyTriggered = false;
+                brokers.forEach((brokerUrl) => {
+                    try {
+                        const client = mqtt.connect(brokerUrl, {
+                            keepalive: 25,
+                            reconnectPeriod: 2000,
+                            connectTimeout: 5000
+                        });
+
+                        client.on('connect', () => {
+                            client.subscribe(topic, { qos: 0 }, () => {
+                                if (!readyTriggered) {
+                                    readyTriggered = true;
+                                    if (onReadyCallback) onReadyCallback();
+                                }
+                            });
+                        });
+
+                        client.on('message', (t, message) => {
+                            try {
+                                const data = JSON.parse(message.toString());
+                                handleIncomingSyncData(data);
+                            } catch (e) {}
+                        });
+
+                        mqttClients.push(client);
+                    } catch (e) {}
+                });
+            } else if (onReadyCallback) {
+                onReadyCallback();
+            }
+        }
+
+        // 步驟 1：大螢幕端產生 4 位數房間碼等待手機連線
+        function startScreenReceiver() {
+            const code = String(Math.floor(1000 + Math.random() * 9000));
+            syncRole = 'screen';
+
+            document.getElementById('host-code-box').classList.remove('hidden');
+            document.getElementById('room-code-display').textContent = code;
+            document.getElementById('host-conn-status').className = "text-[11px] text-amber-600 font-bold";
+            document.getElementById('host-conn-status').textContent = "⏳ 正在連接雲端同步伺服器...";
+
+            setupSyncChannels(code, () => {
+                document.getElementById('host-conn-status').textContent = "✅ 頻道已就緒！請在手機輸入上方 4 位數號碼";
+                document.getElementById('sync-btn-label').textContent = `大螢幕待命中 (${code})`;
+            });
+
+            // 同時啟動 PeerJS 作為雙重備援
+            if (typeof Peer !== 'undefined') {
+                try {
+                    if (peer) peer.destroy();
+                    peer = new Peer(`wedding-scream-520-${code}`);
+                    peer.on('connection', (conn) => {
+                        syncConn = conn;
+                        onScreenConnectedSuccess();
+                        conn.on('data', (data) => handleIncomingSyncData(data));
+                    });
+                } catch (e) {}
+            }
+        }
+
+        // 步驟 2：手機端輸入 4 位數房間碼連線到大螢幕
+        async function connectPhoneSender() {
+            const code = (document.getElementById('join-code-input').value || '').trim();
+            const statusEl = document.getElementById('phone-conn-status');
+            if (code.length !== 4) {
+                statusEl.textContent = "⚠️ 請輸入大螢幕顯示的 4 位數號碼！";
+                return;
+            }
+
+            statusEl.className = "text-[11px] text-amber-600 font-bold text-center";
+            statusEl.textContent = "⏳ 正在啟動手機麥克風...";
+            const micOk = await initMicrophone();
+            if (!micOk) {
+                statusEl.className = "text-[11px] text-rose-600 font-bold text-center";
+                statusEl.textContent = "⚠️ 請先允許手機麥克風權限（或確認網址為 https:// 開頭）！";
+                return;
+            }
+
+            syncRole = 'phone';
+            statusEl.textContent = "⏳ 正在與大螢幕配對連線...";
+
+            setupSyncChannels(code, () => {
+                // 發送握手訊號給大螢幕，並直接開始傳送即時音量
+                sendSyncPayload({ type: 'phoneHello' });
+                setTimeout(() => {
+                    if (!isRemoteConnected) {
+                        onPhoneConnectedSuccess();
+                    }
+                }, 600);
+            });
+
+            // 同時嘗試 PeerJS 雙重備援
+            if (typeof Peer !== 'undefined') {
+                try {
+                    if (peer) peer.destroy();
+                    peer = new Peer();
+                    peer.on('open', () => {
+                        const conn = peer.connect(`wedding-scream-520-${code}`);
+                        conn.on('open', () => {
+                            syncConn = conn;
+                            onPhoneConnectedSuccess();
+                        });
+                        conn.on('data', (data) => handleIncomingSyncData(data));
+                    });
+                } catch (e) {}
+            }
+        }
+
+        // ================= 婚禮怪獸電力公司分貝評級對照 =================
+        function getMonsterRank(score) {
+            if (score >= 90) {
+                return { title: "💐 捧花得主級！全場暴動啦", badgeClass: "bg-rose-500 text-white animate-pulse" };
+            } else if (score >= 70) {
+                return { title: "👾 毛怪級！尖叫掌聲超熱烈", badgeClass: "bg-amber-400 text-amber-950" };
+            } else if (score >= 50) {
+                return { title: "🎉 歡呼熱烈！人氣超旺", badgeClass: "bg-pink-400 text-white" };
+            } else if (score >= 25) {
+                return { title: "👏 大眼仔熱情拍手", badgeClass: "bg-sky-400 text-white" };
+            } else if (score >= 5) {
+                return { title: "👧 阿布溫馨微笑祝福", badgeClass: "bg-emerald-400 text-white" };
+            } else {
+                return { title: "🤫 靜靜聆聽伴娘祝福", badgeClass: "bg-pink-100 text-pink-500" };
+            }
+        }
+
+        // ================= 排行榜與紀錄管理 =================
+        function resetPeak() {
+            peakEnergy = 0;
+            avgEnergy = 0;
+            peakScoreEl.textContent = "0.0";
+            avgScoreEl.textContent = "0.0";
+            peakLineEl.style.bottom = "0%";
+        }
+
+        function saveCurrentPeakToBoard() {
+            if (peakEnergy <= 0) {
+                statusBannerEl.textContent = "⚠️ 目前最高歡呼為 0.0%，請先收集台下掌聲與尖叫再登錄喔！";
+                return;
+            }
+            const playerInput = document.getElementById('player-name');
+            const playerName = (playerInput.value || "人氣伴娘").trim();
+            const rankTitle = getMonsterRank(peakEnergy).title;
+
+            const currentPeakFormatted = parseFloat(peakEnergy.toFixed(1));
+            const currentAvgFormatted = parseFloat(avgScoreEl.textContent) || currentPeakFormatted;
+
+            addEntryToLeaderboard(playerName, currentPeakFormatted, currentAvgFormatted, rankTitle);
+            playSoundEffect('full');
+            statusBannerEl.textContent = `✅ 已將「${playerName}」的最高歡呼 (${currentPeakFormatted.toFixed(1)}%) 加入捧花榜單！`;
+        }
+
+        function addEntryToLeaderboard(name, peak, avg, rank) {
+            leaderboard.push({ name, peak, avg, rank });
+            // 依照最高瞬間歡呼排序，若同分則比全程平均熱度
+            leaderboard.sort((a, b) => (b.peak - a.peak) || (b.avg - a.avg));
+            renderLeaderboard();
+        }
+
+        function clearLeaderboard() {
+            leaderboard = [];
+            renderLeaderboard();
+            if (syncRole === 'phone') {
+                sendSyncPayload({
+                    type: 'telemetry',
+                    currentEnergy: currentEnergy,
+                    peakEnergy: peakEnergy,
+                    avgText: avgScoreEl.textContent,
+                    bannerText: statusBannerEl.textContent,
+                    playerName: document.getElementById('player-name').value,
+                    leaderboard: leaderboard
+                });
+            }
+        }
+
+        function renderLeaderboard() {
+            const listEl = document.getElementById('leaderboard-list');
+            if (leaderboard.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center text-xs text-rose-400 font-bold py-6 bg-pink-50/60 rounded-2xl border border-dashed border-pink-200">
+                        💐 尚無伴娘紀錄<br>
+                        <span class="text-[11px] text-slate-400 font-normal">最高分的伴娘將獲得新娘的幸福捧花！</span>
+                    </div>`;
+                return;
+            }
+
+            listEl.innerHTML = leaderboard.map((item, idx) => {
+                let medal = `<span class="w-6 h-6 rounded-full bg-pink-100 text-rose-500 text-xs flex items-center justify-center font-black">${idx + 1}</span>`;
+                let rowStyle = "border-pink-200 bg-white";
+                let crownTag = "";
+
+                if (idx === 0) {
+                    medal = `<span class="text-xl" title="目前捧花得主">💐</span>`;
+                    rowStyle = "border-rose-400 bg-gradient-to-r from-rose-50 via-pink-50 to-amber-50 shadow-sm";
+                    crownTag = `<span class="ml-1.5 text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black">捧花候選人👑</span>`;
+                } else if (idx === 1) {
+                    medal = `<span class="text-base">🥈</span>`;
+                } else if (idx === 2) {
+                    medal = `<span class="text-base">🥉</span>`;
+                }
+
+                return `
+                    <div class="flex items-center justify-between px-3 py-2 rounded-2xl border-2 ${rowStyle}">
+                        <div class="flex items-center gap-2 truncate">
+                            ${medal}
+                            <div class="truncate">
+                                <div class="text-xs font-black text-slate-800 truncate flex items-center">
+                                    ${escapeHtml(item.name)}
+                                    ${crownTag}
+                                </div>
+                                <div class="text-[10px] font-bold text-rose-400">${escapeHtml(item.rank)}</div>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0 ml-2">
+                            <span class="cute-number text-base font-bold text-rose-500">${Number(item.peak).toFixed(1)}%</span>
+                            <span class="block text-[10px] text-sky-500 font-bold">平均 ${Number(item.avg).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[m];
+            });
+        }
+    </script>
+</body>
+</html>
